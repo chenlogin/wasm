@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Emscripten-Generated Code</title>
+  </head>
+  <br>
+    <textarea id="output" rows="8"></textarea></br>
+    <button type="button" id="add">add</button>
+    <button type="button" id="processStr">processStr</button>
+    <button type="button" id="processArray">processArray</button>
+    <button type="button" id="processJson">processJson</button>
+
+    <script type='text/javascript'>
+      var Module = {
+        print: (function() {
+          var element = document.getElementById('output');
+          
+          return function(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            
+            console.log(text);
+            if (element) {
+              element.value += text + "\n";
+            }
+          };
+        })()
+      };
+
+      // window.Module = {
+      //   print: console.log,
+      // };
+    </script>
+    
+    <script type='text/javascript'>
+      document.getElementById('add').onclick = function(){
+        
+        Module._add(1,2)
+
+        //ccall(函数名, 返回类型, 参数类型, 参数)，它会直接调用指定函数名的函数。
+        // Module.ccall("add","number",["number","number"], [1,2])
+        
+        //cwrap(函数名, 返回类型, 参数类型)，它不会调用 C 函数，而是返回一个 JS 函数，通过这个 JS 函数可以调用 C 函数。
+        // const cAdd = Module.cwrap("add","number",["number","number"])
+        // cAdd(1,2)
+      }
+      document.getElementById('processStr').onclick = function(){
+        
+        const myFunction = Module.cwrap('processStr', null, ['string']);  
+        myFunction("Hello, WASM!");
+
+        Module.ccall("fibonacci","number",["number","string"], [3,"fibonacci function"])
+      }
+      document.getElementById('processArray').onclick = function(){
+        
+        // 使用cwrap包装C++函数  
+        const processArray = Module.cwrap('processArray', 'void', ['number', 'number']);  
+        
+        // 创建一个JavaScript数组  
+        const jsArray = [1, 2, 3, 4, 5];  
+        
+        // 将JavaScript数组转换为C风格的数组（即，一个指向数组第一个元素的指针和数组长度）  
+        const arrayPtr = Module._malloc(jsArray.length * 4); // 分配内存  
+        Module.HEAP32.set(jsArray, arrayPtr / 4); // 将数组复制到分配的内存中  
+        
+        // 调用C++函数  
+        processArray(arrayPtr, jsArray.length);  
+        // 从WASM堆中读取结果  
+        const result = new Int32Array(Module.HEAP32.buffer, arrayPtr, jsArray.length);
+        console.log(result); // 输出: [2, 4, 6, 8, 10]  
+        // 释放分配的内存  
+        Module._free(arrayPtr);  
+      }
+      document.getElementById('processJson').onclick = function(){
+        const jsonData = {  
+          a: "WASM",  
+          b: 123,  
+          c: true
+        }; 
+        // 将JSON对象转换为字符串  
+        const jsonString = JSON.stringify(jsonData);
+        //Module._processJson调用时参数传入乱码
+        //在JavaScript端使用TextDecoder转化为UTF-8编码来读取WebAssembly内存中的字符串，而不是依赖Emscripten的自动转换
+        //const result = Module._processJson(jsonString); //直接调用参数会显示乱码
+        const result = Module.cwrap('processJson', 'string', ['string'])(jsonString);
+
+        // 将二进制结果转换回JSON对象
+        // 对于大型或复杂的数据结构，可能需要使用更复杂的序列化和反序列化方法。
+        console.log(JSON.parse(result));
+      }
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>
